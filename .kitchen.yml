@@ -1,0 +1,115 @@
+---
+driver:
+  name: vagrant
+  linked_clone: true
+  gui: true
+  vagrantfiles:
+    - test/vagrant-vbguest.rb # stop virtualbox guest additions update
+  provider: virtualbox
+  customize:
+    memory: 2048
+    cpus: 2
+  ### Hyper V ###
+  # provider: hyperv
+  # network:
+  # - ['private_network', bridge: 'Default Switch']
+
+provisioner:
+  name: salt_solo
+  salt_install: bootstrap
+  formula: windows
+  require_chef: false
+  ### The following three lines should be used if you need to reboot during a test kitchen converge ###
+  max_retries: 4
+  wait_for_retry: 30
+  retry_on_exit_code: [35, 1]
+  install_after_init_environment: false
+  is_file_root: false
+  require_chef: false
+  formula: windows
+  salt_file_root: /srv/salt
+  pillars_from_directories:
+  - source: test/salt/pillar/
+    dest: srv/pillar/
+  state_top:
+    base:
+      '*':
+        - windows
+  pillars:
+    top.sls:
+      base:
+        '*':
+          - windows
+  salt_copy_filter:
+    - .kitchen
+    - .git
+    - __pycache__
+    - '*.pyc'
+    - .bundle
+    - .tox
+    - .nox
+    - artifacts
+    - Gemfile.lock
+  salt_minion_extra_config:
+    use_superseded:
+    - module.run
+    
+platforms:
+  # Windows 10, version 1903 (OS Build: 18362.592)
+  - name: windows-10-1903
+    driver:
+      box: StefanScherer/windows_10
+      box_version: 2020.01.15
+
+  # Windows 10, version 1809 (OS Build: 17763.503)
+  - name: windows-10-1809
+    driver:
+      box: StefanScherer/windows_10
+      box_version: 2019.05.15
+
+  # Windows 10, version 1803 (OS Build: 17134.285)
+  - name: windows-10-1803
+    driver:
+      box: StefanScherer/windows_10
+      box_version: 2018.09.12
+
+  # Windows 10, version 1709 (OS Build: 16299.309)
+  - name: windows-10-1709
+    driver:
+      box: StefanScherer/windows_10
+      box_version: 2018.03.14
+  
+  # Windows Server 2019, version 1809 (OS Build: 17763.864)
+  - name: windows-server-2019-1809
+    driver:
+      box: StefanScherer/windows_2019
+      box_version: 2020.01.15
+      gui: false
+
+  # Windows Server 2016, version 1607 (OS Build: 14393.2791)
+  - name: windows-server-2016
+    driver:
+      box: StefanScherer/windows_2016
+      box_version: 2019.02.14
+
+  # Windows Server 2012 R2 (OS Build: 9600)
+  - name: windows-server-2012r2
+    driver:
+      box: mwrock/Windows2012R2
+      box_version: 0.6.1
+
+verifier:
+  name: inspec
+  windows: true
+  run_destructive: true
+  inspec_tests:
+    - path: test/integration/default
+  reporter:
+    - cli
+    - documentation:test/results/test_kitchen_%{platform}_%{suite}.txt
+    - json:test/results/test_kitchen_%{platform}_%{suite}.json
+
+suites:
+  - name: py3
+    provisioner:
+      salt_bootstrap_options: "-version 2019.2.3 -pythonVersion 3"

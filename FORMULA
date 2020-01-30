@@ -1,0 +1,9 @@
+name: windows test kitchen examples
+os: Windows
+os_family: Windows
+version: 0.0.1
+release: 1
+minimum_version: 2019.2.2
+summary: windows test kitchen examples
+description: windows test kitchen examples
+top_level_dir: windows

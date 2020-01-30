@@ -1,0 +1,68 @@
+# version format
+version: 1.0.{build}
+
+environment:
+  machine_user: vagrant
+  machine_pass: vagrant
+  KITCHEN_LOCAL_YAML: .kitchen.appveyor.yml
+  CHEF_LICENSE: accept
+
+branches:
+  only:
+    - master
+
+# Do not build on tags (GitHub only)
+skip_tags: true
+
+skip_commits:
+  message: /\[skip build\]/
+
+# only_commits:
+#   message: /\[build\]/
+
+image:
+  - Visual Studio 2019
+  - Visual Studio 2017
+  - Visual Studio 2015
+  - Visual Studio 2013
+  # - Visual Studio 2019 Preview
+
+platform:
+  - Any CPU
+
+matrix:
+  fast_finish: true     # set this flag to immediately finish build once one of the jobs fails.
+  allow_failures:
+    - platform: x86
+      configuration: Debug
+    - platform: x64
+      configuration: Release
+
+# Install the latest nightly of ChefDK
+install:
+  - ps: (& cmd /c); iex (irm https://omnitruck.chef.io/install.ps1); Install-Project -Project chefdk -channel current
+  - ps: Get-CimInstance Win32_OperatingSystem | Format-List *
+  - ps: $PSVersionTable
+  - c:\opscode\chefdk\bin\chef.bat exec ruby --version
+  - ps: secedit /export /cfg $env:temp/export.cfg
+  - ps: ((get-content $env:temp/export.cfg) -replace ('PasswordComplexity = 1', 'PasswordComplexity = 0')) | Out-File $env:temp/export.cfg
+  - ps: ((get-content $env:temp/export.cfg) -replace ('MinimumPasswordLength = 8', 'MinimumPasswordLength = 0')) | Out-File $env:temp/export.cfg
+  - ps: secedit /configure /db $env:windir/security/new.sdb /cfg $env:temp/export.cfg /areas SECURITYPOLICY
+  - ps: net user /add $env:machine_user $env:machine_pass
+  - ps: net localgroup administrators $env:machine_user /add
+
+build_script:
+  - ps: c:\opscode\chefdk\bin\chef.bat shell-init powershell | iex; cmd /c c:\opscode\chefdk\bin\chef.bat --version
+  - ps: c:\opscode\chefdk\bin\chef.bat exec bundle install
+
+test_script:
+  - ps: c:\opscode\chefdk\bin\chef.bat exec kitchen list
+  - ps: c:\opscode\chefdk\bin\chef.bat exec kitchen test
+
+on_finish:
+  - ps: |
+      # upload results to AppVeyor
+      $wc = New-Object 'System.Net.WebClient'
+      $wc.UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\test\results\TEST.xml))
+
+deploy: off

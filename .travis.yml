@@ -1,0 +1,45 @@
+
+os: windows
+language: shell
+
+env:
+  global:
+    - machine_user=vagrant
+    - machine_pass=vagrant
+    - machine_port=22
+    - KITCHEN_LOCAL_YAML=.kitchen.travis.yml
+    - CHEF_LICENSE=accept
+
+# blocklist
+branches:
+  except:
+  - legacy
+  - experimental
+
+# safelist
+branches:
+  only:
+  - master
+  - stable
+
+install:
+  - powershell -Command 'gwmi -Query "select OPeratingSystemSKU,Version,ProductType from Win32_OperatingSystem"'
+  - powershell -Command 'Get-CimInstance Win32_OperatingSystem | Format-List *'
+  - powershell -Command \$PSVersionTable
+  - powershell -Command 'secedit /export /cfg $env:temp/export.cfg'
+  - powershell -Command '((get-content $env:temp/export.cfg) -replace ("PasswordComplexity = 1", "PasswordComplexity = 0")) | Out-File $env:temp/export.cfg'
+  - powershell -Command '((get-content $env:temp/export.cfg) -replace ("MinimumPasswordLength = 8", "MinimumPasswordLength = 0")) | Out-File $env:temp/export.cfg'
+  - powershell -Command 'secedit /configure /db $env:windir/security/new.sdb /cfg $env:temp/export.cfg /areas SECURITYPOLICY'
+  - powershell -Command 'net user /add $env:machine_user $env:machine_pass'
+  - powershell -Command 'net localgroup administrators $env:machine_user /add'
+  - powershell -Command '(& cmd /c); iex (irm https://omnitruck.chef.io/install.ps1); Install-Project -Project chefdk -channel current'
+  - powershell -Command 'Get-CimInstance win32_operatingsystem -Property Caption, OSArchitecture, Version | fl Caption, OSArchitecture, Version'
+  - powershell -Command 'c:\opscode\chefdk\bin\chef.bat exec ruby --version'
+
+script:
+  - ruby -v
+  - powershell -Command 'c:\opscode\chefdk\bin\chef.bat shell-init powershell | iex'
+  - powershell -Command 'c:\opscode\chefdk\bin\chef.bat --version'
+  - powershell -Command 'c:\opscode\chefdk\bin\chef.bat exec bundle install'
+  - powershell -Command 'c:\opscode\chefdk\bin\chef.bat exec kitchen list'
+  - powershell -Command 'c:\opscode\chefdk\bin\chef.bat exec kitchen test'

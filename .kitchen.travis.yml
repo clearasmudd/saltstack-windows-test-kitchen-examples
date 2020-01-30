@@ -1,0 +1,15 @@
+---
+driver:
+  name: proxy
+  host: localhost
+  reset_command: "exit 0"
+  port: 5985
+  username: <%= ENV["machine_user"] %>
+  password: <%= ENV["machine_pass"] %>
+
+transport:
+  name: winrm
+  elevated: true
+
+platforms:
+  - name: windows-2019
